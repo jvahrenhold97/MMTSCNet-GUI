@@ -1,12 +1,15 @@
 import customtkinter
 from PIL import Image
 import os
+import sys
+import time
 from customtkinter import *
 import tkinter as tk
 import datetime
 from queue import Queue
-from gui import gui_utils, main_functions
-from model import training_utils
+from gui import gui_utils
+from utils import main_utils
+from functionalities import main_functions, model_utils
 import webbrowser
 
 customtkinter.set_appearance_mode("System")
@@ -67,7 +70,7 @@ class App(customtkinter.CTk):
         self.options_frame_interact.grid(row=1, column=0, rowspan=7, padx=(10, 10), pady=(10, 10), sticky="nsew")
         self.options_frame_interact.grid_columnconfigure((0, 2), weight=2)
         self.options_frame_interact.grid_columnconfigure(1, weight=1)
-        self.options_frame_interact.grid_rowconfigure((0,1,2,3,4,5,6,7,8,9,10), weight=1)
+        self.options_frame_interact.grid_rowconfigure((0,1,2,3,4,5,6,7,8,9), weight=1)
 
         self.input_label_01 = customtkinter.CTkLabel(self.options_frame_interact, text="Data-Directory:", fg_color="transparent", font=text_font)
         self.input_label_01.grid(row=0, column=0, padx=10, pady=10, sticky="w")
@@ -127,11 +130,6 @@ class App(customtkinter.CTk):
         self.train_checkbox = customtkinter.CTkSwitch(self.options_frame_interact, text="", command=self.train_event, variable=train_var, onvalue="on", offvalue="off")
         self.train_checkbox.grid(row=9, column=2, padx=(10, 10), pady=(10, 10), sticky="w")
 
-        self.tuning_label = customtkinter.CTkLabel(self.options_frame_interact, text="Custom HP-tuning:", fg_color="transparent", font=text_font)
-        self.tuning_label.grid(row=10, column=0, padx=10, pady=10, sticky="w")
-        self.tuning_checkbox = customtkinter.CTkSwitch(self.options_frame_interact, text="", command=self.tuning_event, variable=tune_var, onvalue="on", offvalue="off")
-        self.tuning_checkbox.grid(row=10, column=2, padx=(10, 10), pady=(10, 10), sticky="w")
-
         self.start_frame_interact = customtkinter.CTkFrame(self.options_frame, fg_color=("gray88", "gray19"))
         self.start_frame_interact.grid(row=8, column=0, padx=(10, 10), pady=(10, 10), sticky="nsew")
         self.start_frame_interact.grid_columnconfigure(0, weight=1)
@@ -169,19 +167,18 @@ class App(customtkinter.CTk):
         capsel = self.capsel_button.get()
         growsel = self.growsel_button.get()
         netpcsize = self.netpcsize_button.get()
-        netimgsize = 224
-        maxpcscale = 0.0075
+        maxpcscale = 0.005
         bsize = int(self.bsize_button.get())
         train = self.train_checkbox.get()
-        tune = self.tuning_checkbox.get()
-        thr1 = gui_utils.ReturnValueThread(target=self.run_mmpnet, args=("STARTING MMTSCNET!", data_dir, work_dir, model_dir, elimper, ssstest, capsel, growsel, netpcsize, netimgsize, maxpcscale, bsize, train, self.mmpnet_start_button, self.progressbar, self.mmpnet_output, tune), daemon=True)
+        thr1 = gui_utils.ReturnValueThread(target=self.run_mmpnet, args=("STARTING MMTSCNET!", data_dir, work_dir, model_dir, elimper, ssstest, capsel, growsel, netpcsize, maxpcscale, bsize, train, self.mmpnet_start_button, self.progressbar, self.mmpnet_output), daemon=True)
         thr1.start()
 
-    def run_mmpnet(self, message, data_dir, work_dir, model_dir, elimper, ssstest, capsel, growsel, netpcsize, netimgsize, maxpcscale, bsize, train, start_btn, progbar, output_log, tune):
+    def run_mmpnet(self, message, data_dir, work_dir, model_dir, elimper, ssstest, capsel, growsel, netpcsize, maxpcscale, bsize, train, start_btn, progbar, output_log):
         if gui_utils.validate_selected_folders(data_dir, work_dir, model_dir, start_btn, progbar, output_log) == False:
             pass
         else:
             fwf_av = gui_utils.are_fwf_pointclouds_available(data_dir)
+            data_dir, work_dir, model_dir, elim_per, max_pcscale, sss_test, cap_sel, grow_sel, bsize, img_size, pc_size = main_utils.validate_inputs(data_dir, work_dir, model_dir, elimper, maxpcscale, ssstest, capsel, growsel, bsize, netpcsize, start_btn, progbar, output_log)
             now = datetime.datetime.now()
             now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
             ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - {message}")
@@ -189,162 +186,67 @@ class App(customtkinter.CTk):
             self.event_generate("<<CheckQueue>>", when="tail")
             self.progressbar.step()
 
-            filepaths = main_functions.extract_data(data_dir, work_dir, output_log, start_btn, progbar, fwf_av)
-            now = datetime.datetime.now()
-            now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-            ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - SUCCESSFULLY EXTRACTED ALL FILES!")
-            self.queue_message.put(ticket)
-            self.event_generate("<<CheckQueue>>", when="tail")
-            self.progressbar.step()
-
             if train == "on":
-                X_pc_train, X_pc_val, X_metrics_train, X_metrics_val, X_img_1_train, X_img_1_val, X_img_2_train, X_img_2_val, y_train, y_val, num_classes, label_dict = main_functions.preprocess_data(filepaths, ssstest, capsel, growsel, elimper, maxpcscale, netpcsize, netimgsize, output_log, fwf_av)
+                workspace_paths = main_functions.extract_data(data_dir, work_dir, fwf_av, cap_sel, grow_sel, start_btn, progbar, output_log)
                 now = datetime.datetime.now()
                 now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - TRAINING DATA GENERATED!")
+                ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - WORKING DIRECTORY SET-UP!")
                 self.queue_message.put(ticket)
                 self.event_generate("<<CheckQueue>>", when="tail")
                 self.progressbar.step()
 
-                if tune == "on":
-                    untrained_model = main_functions.perform_hp_tuning(model_dir, X_pc_train, X_img_1_train, X_img_2_train, X_metrics_train, y_train, X_pc_val, X_img_1_val, X_img_2_val, X_metrics_val, y_val, bsize, netpcsize, netimgsize, num_classes, output_log)
-                    now = datetime.datetime.now()
-                    now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                    ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - HYPERPARAMETER TUNING COMPLETED!")
-                    self.queue_message.put(ticket)
-                    self.event_generate("<<CheckQueue>>", when="tail")
-                    self.progressbar.step()
+                X_pc_train, X_pc_val, X_metrics_train, X_metrics_val, X_img_1_train, X_img_1_val, X_img_2_train, X_img_2_val, y_train, y_val, num_classes, label_dict = main_functions.preprocess_data(workspace_paths, sss_test, cap_sel, grow_sel, elim_per, max_pcscale, pc_size, img_size, fwf_av, start_btn, progbar, output_log)
+                now = datetime.datetime.now()
+                now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
+                ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - TRAINING DATA WAS CREATED!")
+                self.queue_message.put(ticket)
+                self.event_generate("<<CheckQueue>>", when="tail")
+                self.progressbar.step()
 
-                    trained_model = main_functions.perform_training(untrained_model, bsize, X_pc_train, X_img_1_train, X_img_2_train, X_metrics_train, y_train, X_pc_val, X_img_1_val, X_img_2_val, X_metrics_val, y_val, model_dir, label_dict, output_log)
-                    now = datetime.datetime.now()
-                    now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                    ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - MMTSCNET TRAINING COMPLETE!")
-                    self.queue_message.put(ticket)
-                    self.event_generate("<<CheckQueue>>", when="tail")
-                    self.progressbar.step()
+                untrained_model = main_functions.perform_hp_tuning(model_dir, X_pc_train, X_img_1_train, X_img_2_train, X_metrics_train, y_train, X_pc_val, X_img_1_val, X_img_2_val, X_metrics_val, y_val, bsize, pc_size, img_size, num_classes, cap_sel, grow_sel, start_btn, progbar, output_log)
+                now = datetime.datetime.now()
+                now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
+                ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - HP-TUNING FINISHED!")
+                self.queue_message.put(ticket)
+                self.event_generate("<<CheckQueue>>", when="tail")
+                self.progressbar.step()
 
-                    X_pc, X_metrics, X_img_f, X_img_s, y, onehot_to_label_dict, filtered_pointclouds = main_functions.preprocess_prediction_data(filepaths, capsel, growsel, elimper, maxpcscale, netpcsize, netimgsize, output_log, fwf_av)
-                    now = datetime.datetime.now()
-                    now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                    ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - PREDICTION DATA GENERATED!")
-                    self.queue_message.put(ticket)
-                    self.event_generate("<<CheckQueue>>", when="tail")
-                    self.progressbar.step()
-
-                    main_functions.predict_for_custom_data(trained_model, X_pc, X_img_f, X_img_s, X_metrics, y, onehot_to_label_dict, filepaths, work_dir, filtered_pointclouds, output_log)
-                    now = datetime.datetime.now()
-                    now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                    ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - PREDICTING FINISHED!")
-                    self.queue_message.put(ticket)
-                    self.event_generate("<<CheckQueue>>", when="tail")
-                    self.progressbar.step()
-
-                    now = datetime.datetime.now()
-                    now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                    ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - MMTSCNET FINISHED!")
-                    self.queue_message.put(ticket)
-                    self.event_generate("<<CheckQueue>>", when="tail")
-                    self.progressbar.step()
-                    start_btn.configure(state="normal")
-
-                elif tune == "off":
-                    if training_utils.check_if_tuned_model_is_created(model_dir) == True:
-                        model_path = training_utils.get_tuned_model_folder(model_dir)
-                        untrained_model = training_utils.load_tuned_model_from_folder(model_path)
-                        self.progressbar.step()
-                        trained_model = main_functions.perform_training(untrained_model, bsize, X_pc_train, X_img_1_train, X_img_2_train, X_metrics_train, y_train, X_pc_val, X_img_1_val, X_img_2_val, X_metrics_val, y_val, model_dir, label_dict, output_log)
-                        now = datetime.datetime.now()
-                        now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                        ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - MMTSCNET TRAINING COMPLETE!")
-                        self.queue_message.put(ticket)
-                        self.event_generate("<<CheckQueue>>", when="tail")
-                        self.progressbar.step()
-
-                        X_pc, X_metrics, X_img_f, X_img_s, y, onehot_to_label_dict, filtered_pointclouds = main_functions.preprocess_prediction_data(filepaths, capsel, growsel, elimper, maxpcscale, netpcsize, netimgsize, output_log, fwf_av)
-                        now = datetime.datetime.now()
-                        now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                        ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - PREDICTION DATA GENERATED!")
-                        self.queue_message.put(ticket)
-                        self.event_generate("<<CheckQueue>>", when="tail")
-                        self.progressbar.step()
-
-                        main_functions.predict_for_custom_data(trained_model, X_pc, X_img_f, X_img_s, X_metrics, y, onehot_to_label_dict, filepaths, work_dir, filtered_pointclouds, output_log)
-                        now = datetime.datetime.now()
-                        now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                        ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - PREDICTING FINISHED!")
-                        self.queue_message.put(ticket)
-                        self.event_generate("<<CheckQueue>>", when="tail")
-                        self.progressbar.step()
-
-                        now = datetime.datetime.now()
-                        now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                        ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - MMTSCNET FINISHED!")
-                        self.queue_message.put(ticket)
-                        self.event_generate("<<CheckQueue>>", when="tail")
-                        self.progressbar.step()
-                        start_btn.configure(state="normal")
-
-                    else:
-                        now = datetime.datetime.now()
-                        now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                        ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - ERROR - NO PRETUNED MODEL FOUND!")
-                        self.queue_message.put(ticket)
-                        self.event_generate("<<CheckQueue>>", when="tail")
-                        self.progressbar.step()
-                        start_btn.configure(state="normal")
-
-                else:
-                    now = datetime.datetime.now()
-                    now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                    ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - ERROR - AN UNKNOWN ERROR OCCURRED, EXITING!")
-                    self.queue_message.put(ticket)
-                    self.event_generate("<<CheckQueue>>", when="tail")
-                    self.progressbar.step()
-                    start_btn.configure(state="normal")
+                trained_model = main_functions.perform_training(untrained_model, bsize, X_pc_train, X_img_1_train, X_img_2_train, X_metrics_train, y_train, X_pc_val, X_img_1_val, X_img_2_val, X_metrics_val, y_val, model_dir, label_dict, cap_sel, grow_sel, start_btn, progbar, output_log)
+                now = datetime.datetime.now()
+                now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
+                ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - TRAINING FINISHED, YOU CAN NOW PREDICT FOR CUSTOM DATA!")
+                self.queue_message.put(ticket)
+                self.event_generate("<<CheckQueue>>", when="tail")
+                self.progressbar.step()
 
             elif train == "off":
-                X_pc, X_metrics, X_img_f, X_img_s, y, onehot_to_label_dict, filtered_pointclouds = main_functions.preprocess_prediction_data(filepaths, capsel, growsel, elimper, maxpcscale, netpcsize, netimgsize, output_log, fwf_av)
-                now = datetime.datetime.now()
-                now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - PREDICTION DATA GENERATED!")
-                self.queue_message.put(ticket)
-                self.event_generate("<<CheckQueue>>", when="tail")
-                self.progressbar.step()
-
-                if training_utils.check_if_model_is_created(model_dir) == True:
-                    model_path = training_utils.get_trained_model_folder(model_dir)
-                    trained_model = training_utils.load_trained_model_from_folder(model_path)
+                if main_utils.check_if_model_is_created(model_dir) == True:
+                    pretrained_model_path = model_utils.get_trained_model_folder(model_dir, cap_sel, grow_sel, start_btn, progbar, output_log)
+                    pretrained_model = model_utils.load_trained_model_from_folder(pretrained_model_path)
                     now = datetime.datetime.now()
                     now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                    ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - MMTSCNET LOADED!")
+                    ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - PRETRAINED MODEL LOADED!")
                     self.queue_message.put(ticket)
                     self.event_generate("<<CheckQueue>>", when="tail")
                     self.progressbar.step()
 
-                    main_functions.predict_for_custom_data(trained_model, X_pc, X_img_f, X_img_s, X_metrics, y, onehot_to_label_dict, filepaths, work_dir, filtered_pointclouds, output_log)
+                    main_functions.predict_for_custom_data(pretrained_model, work_dir, img_size, pc_size, cap_sel, grow_sel, elim_per, fwf_av, data_dir, model_dir, start_btn, progbar, output_log)
                     now = datetime.datetime.now()
                     now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                    ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - PREDICTING FINISHED!")
+                    ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - PREDICTIONS WRITTEN TO MODEL DIRECTORY!")
                     self.queue_message.put(ticket)
                     self.event_generate("<<CheckQueue>>", when="tail")
                     self.progressbar.step()
-
-                    now = datetime.datetime.now()
-                    now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                    ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - STATUS - MMTSCNET FINISHED!")
-                    self.queue_message.put(ticket)
-                    self.event_generate("<<CheckQueue>>", when="tail")
-                    self.progressbar.step()
-                    start_btn.configure(state="normal")
 
                 else:
                     now = datetime.datetime.now()
                     now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-                    ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - ERROR - NO PRETRAINED MODEL FOUND!")
+                    ticket = gui_utils.Ticket(ticket_type=gui_utils.TicketPurpose.UPDATE_TEXT, ticket_value=f"{now_formatted} - ERROR - NO PRETRAINED MODEL AVAILABLE, PLEASE TRAIN A NEW MODEL!")
                     self.queue_message.put(ticket)
                     self.event_generate("<<CheckQueue>>", when="tail")
                     self.progressbar.step()
                     start_btn.configure(state="normal")
+                
 
             else:
                 now = datetime.datetime.now()
@@ -436,21 +338,5 @@ class App(customtkinter.CTk):
             if self.tuning_checkbox.get() == "on":
                 self.tuning_checkbox.toggle()
                 self.tuning_checkbox.configure(state="disabled")
-        else:
-            pass
-
-    def tuning_event(self):
-        if self.tuning_checkbox.get() == "on":
-            self.mmpnet_output.configure(state="normal")
-            now = datetime.datetime.now()
-            now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-            self.mmpnet_output.insert("1.0", f"{now_formatted} - INFO - CUSTOM HP-TUNING ENABLED" +'\n')
-            self.mmpnet_output.configure(state="disabled")
-        elif self.tuning_checkbox.get() == "off":
-            self.mmpnet_output.configure(state="normal")
-            now = datetime.datetime.now()
-            now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-            self.mmpnet_output.insert("1.0", f"{now_formatted} - INFO - CUSTOM HP-TUNING DISABLED" +'\n')
-            self.mmpnet_output.configure(state="disabled")
         else:
             pass
