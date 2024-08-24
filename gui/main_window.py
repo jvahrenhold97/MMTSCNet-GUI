@@ -32,7 +32,7 @@ class App(customtkinter.CTk):
         self.queue_message = Queue()
         self.bind("<<CheckQueue>>", self.check_queue)
 
-        self.title("MMPNet-UI")
+        self.title("MMTSCNet-UI")
         self.geometry("1340x924")
         self.iconbitmap(os.path.join(cw, "images/logo_light.png"))
 
@@ -63,7 +63,7 @@ class App(customtkinter.CTk):
         self.options_frame.grid(row=0, column=1, rowspan=8, padx=(10, 10), pady=(10, 10), sticky="nsew")
         self.options_frame.grid_columnconfigure(0, weight=1)
 
-        self.mode_label = customtkinter.CTkLabel(self.options_frame, text="MMPNET-SETUP", fg_color="transparent", font=heading_font)
+        self.mode_label = customtkinter.CTkLabel(self.options_frame, text="MMTSCNet-SETUP", fg_color="transparent", font=heading_font)
         self.mode_label.grid(row=0, column=0, padx=10, pady=10)
 
         self.options_frame_interact = customtkinter.CTkFrame(self.options_frame, fg_color="transparent")
@@ -137,10 +137,10 @@ class App(customtkinter.CTk):
         self.start_frame_interact.grid_rowconfigure(0, weight=3)
         self.start_frame_interact.grid_rowconfigure(1, weight=1)
 
-        self.mmpnet_start_button = customtkinter.CTkButton(self.start_frame_interact, text="START", font=heading_font, command=self.start_application)
-        self.mmpnet_start_button.grid(row=1, column=0, padx=0, pady=10, sticky="nsew")
-        self.mmpnet_output = customtkinter.CTkTextbox(self.start_frame_interact, fg_color=("gray90", "gray21"), font=text_font, state="disabled")
-        self.mmpnet_output.grid(row=0, column=0, columnspan=2, padx=0, pady=0, sticky="nsew")
+        self.mmtscnet_start_button = customtkinter.CTkButton(self.start_frame_interact, text="START", font=heading_font, command=self.start_application)
+        self.mmtscnet_start_button.grid(row=1, column=0, padx=0, pady=10, sticky="nsew")
+        self.mmtscnet_output = customtkinter.CTkTextbox(self.start_frame_interact, fg_color=("gray90", "gray21"), font=text_font, state="disabled")
+        self.mmtscnet_output.grid(row=0, column=0, columnspan=2, padx=0, pady=0, sticky="nsew")
         self.progbar_frame = customtkinter.CTkFrame(self.start_frame_interact, fg_color="transparent")
         self.progbar_frame.grid(row=1, column=1, padx=(10, 0), pady=10, sticky="nsew")
         self.progbar_frame.grid_columnconfigure(0, weight=1)
@@ -154,11 +154,11 @@ class App(customtkinter.CTk):
         self.progressbar.set(0)
 
     def start_application(self):
-        self.mmpnet_start_button.configure(state="disabled", text="WORKING...")
+        self.mmtscnet_start_button.configure(state="disabled", text="WORKING...")
         self.progressbar.set(0)
-        self.mmpnet_output.configure(state="normal")
-        self.mmpnet_output.delete("1.0", "end")
-        self.mmpnet_output.configure(state="disabled")
+        self.mmtscnet_output.configure(state="normal")
+        self.mmtscnet_output.delete("1.0", "end")
+        self.mmtscnet_output.configure(state="disabled")
         data_dir = self.folder_select_button_01.cget("text")
         work_dir = self.folder_select_button_02.cget("text")
         model_dir = self.folder_select_button_03.cget("text")
@@ -170,10 +170,10 @@ class App(customtkinter.CTk):
         maxpcscale = 0.005
         bsize = int(self.bsize_button.get())
         train = self.train_checkbox.get()
-        thr1 = gui_utils.ReturnValueThread(target=self.run_mmpnet, args=("STARTING MMTSCNET!", data_dir, work_dir, model_dir, elimper, ssstest, capsel, growsel, netpcsize, maxpcscale, bsize, train, self.mmpnet_start_button, self.progressbar, self.mmpnet_output), daemon=True)
+        thr1 = gui_utils.ReturnValueThread(target=self.run_mmtscnet, args=("STARTING MMTSCNET!", data_dir, work_dir, model_dir, elimper, ssstest, capsel, growsel, netpcsize, maxpcscale, bsize, train, self.mmtscnet_start_button, self.progressbar, self.mmtscnet_output), daemon=True)
         thr1.start()
 
-    def run_mmpnet(self, message, data_dir, work_dir, model_dir, elimper, ssstest, capsel, growsel, netpcsize, maxpcscale, bsize, train, start_btn, progbar, output_log):
+    def run_mmtscnet(self, message, data_dir, work_dir, model_dir, elimper, ssstest, capsel, growsel, netpcsize, maxpcscale, bsize, train, start_btn, progbar, output_log):
         if gui_utils.validate_selected_folders(data_dir, work_dir, model_dir, start_btn, progbar, output_log) == False:
             pass
         else:
@@ -261,9 +261,9 @@ class App(customtkinter.CTk):
         msg: gui_utils.Ticket
         msg = self.queue_message.get()
         if msg.ticket_type == gui_utils.TicketPurpose.UPDATE_TEXT:
-            self.mmpnet_output.configure(state="normal")
-            self.mmpnet_output.insert("1.0", f"{msg.ticket_value}" + '\n')
-            self.mmpnet_output.configure(state="disabled")
+            self.mmtscnet_output.configure(state="normal")
+            self.mmtscnet_output.insert("1.0", f"{msg.ticket_value}" + '\n')
+            self.mmtscnet_output.configure(state="disabled")
         else:
             pass
 
@@ -296,45 +296,45 @@ class App(customtkinter.CTk):
     def capsel_button_callback(self, value):
         now = datetime.datetime.now()
         now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-        self.mmpnet_output.configure(state="normal")
-        self.mmpnet_output.insert("1.0", f"{now_formatted} - INFO - CAPSEL VALUE: "+ value +'\n')
-        self.mmpnet_output.configure(state="disabled")
+        self.mmtscnet_output.configure(state="normal")
+        self.mmtscnet_output.insert("1.0", f"{now_formatted} - INFO - CAPSEL VALUE: "+ value +'\n')
+        self.mmtscnet_output.configure(state="disabled")
 
     def growsel_button_callback(self, value):
         now = datetime.datetime.now()
         now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-        self.mmpnet_output.configure(state="normal")
-        self.mmpnet_output.insert("1.0", f"{now_formatted} - INFO - GROWSEL VALUE: "+ value +'\n')
-        self.mmpnet_output.configure(state="disabled")
+        self.mmtscnet_output.configure(state="normal")
+        self.mmtscnet_output.insert("1.0", f"{now_formatted} - INFO - GROWSEL VALUE: "+ value +'\n')
+        self.mmtscnet_output.configure(state="disabled")
 
     def pcsize_button_callback(self, value):
         now = datetime.datetime.now()
         now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-        self.mmpnet_output.configure(state="normal")
-        self.mmpnet_output.insert("1.0", f"{now_formatted} - INFO - PCSISE VALUE: "+ value +'\n')
-        self.mmpnet_output.configure(state="disabled")
+        self.mmtscnet_output.configure(state="normal")
+        self.mmtscnet_output.insert("1.0", f"{now_formatted} - INFO - PCSISE VALUE: "+ value +'\n')
+        self.mmtscnet_output.configure(state="disabled")
 
     def bsize_button_callback(self, value):
         now = datetime.datetime.now()
         now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-        self.mmpnet_output.configure(state="normal")
-        self.mmpnet_output.insert("1.0", f"{now_formatted} - INFO - BSIZE VALUE: "+ value +'\n')
-        self.mmpnet_output.configure(state="disabled")
+        self.mmtscnet_output.configure(state="normal")
+        self.mmtscnet_output.insert("1.0", f"{now_formatted} - INFO - BSIZE VALUE: "+ value +'\n')
+        self.mmtscnet_output.configure(state="disabled")
 
     def train_event(self):
         if self.train_checkbox.get() == "on":
-            self.mmpnet_output.configure(state="normal")
+            self.mmtscnet_output.configure(state="normal")
             now = datetime.datetime.now()
             now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-            self.mmpnet_output.insert("1.0", f"{now_formatted} - INFO - MODEL TRAINING ENABLED" +'\n')
-            self.mmpnet_output.configure(state="disabled")
+            self.mmtscnet_output.insert("1.0", f"{now_formatted} - INFO - MODEL TRAINING ENABLED" +'\n')
+            self.mmtscnet_output.configure(state="disabled")
             self.tuning_checkbox.configure(state="normal")
         elif self.train_checkbox.get() == "off":
-            self.mmpnet_output.configure(state="normal")
+            self.mmtscnet_output.configure(state="normal")
             now = datetime.datetime.now()
             now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
-            self.mmpnet_output.insert("1.0", f"{now_formatted} - INFO - MODEL TRAINING DISABLED" +'\n')
-            self.mmpnet_output.configure(state="disabled")
+            self.mmtscnet_output.insert("1.0", f"{now_formatted} - INFO - MODEL TRAINING DISABLED" +'\n')
+            self.mmtscnet_output.configure(state="disabled")
             if self.tuning_checkbox.get() == "on":
                 self.tuning_checkbox.toggle()
                 self.tuning_checkbox.configure(state="disabled")
