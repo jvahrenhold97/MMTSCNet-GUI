@@ -12,16 +12,19 @@ from utils import main_utils
 from functionalities import main_functions, model_utils
 import webbrowser
 
+# Customtkinter configuration
 customtkinter.set_appearance_mode("System")
 customtkinter.set_default_color_theme("dark-blue")
 
+# GUI Framework
 class App(customtkinter.CTk):
     def __init__(self):
         super().__init__()
-
+        # FOnt size
         heading_font = customtkinter.CTkFont("Calibri", 20)
         text_font = customtkinter.CTkFont("Calibri", 14)
 
+        # Variables
         elimpercentage = tk.IntVar(self, 0)
         ssstestsize = tk.IntVar(self, 20)
         train_var = tk.StringVar(value="on")
@@ -29,9 +32,11 @@ class App(customtkinter.CTk):
 
         cw = os.getcwd()
 
+        # Logging ticketing setup
         self.queue_message = Queue()
         self.bind("<<CheckQueue>>", self.check_queue)
 
+        # Window setup
         self.title("MMTSCNet-UI")
         self.geometry("1340x924")
         self.iconbitmap(os.path.join(cw, "images/logo_light.png"))
@@ -40,6 +45,7 @@ class App(customtkinter.CTk):
         self.grid_columnconfigure((2, 3), weight=0)
         self.grid_rowconfigure((0, 1, 2), weight=1)
 
+        # Sidebar
         self.sidebar_frame = customtkinter.CTkFrame(self, width=140, corner_radius=0, fg_color=("gray86", "gray17"))
         self.sidebar_frame.grid(row=0, column=0, rowspan=4, sticky="nsew")
         self.sidebar_frame.grid_rowconfigure(4, weight=1)
@@ -59,6 +65,7 @@ class App(customtkinter.CTk):
         self.scaling_optionemenu = customtkinter.CTkOptionMenu(self.sidebar_frame, values=["80%", "90%", "100%"], font=text_font, command=self.change_scaling_event)
         self.scaling_optionemenu.grid(row=8, column=0, padx=20, pady=(10, 20))
 
+        # Main Window UI
         self.options_frame = customtkinter.CTkFrame(self, fg_color=("gray86", "gray17"))
         self.options_frame.grid(row=0, column=1, rowspan=8, padx=(10, 10), pady=(10, 10), sticky="nsew")
         self.options_frame.grid_columnconfigure(0, weight=1)
@@ -137,6 +144,7 @@ class App(customtkinter.CTk):
         self.start_frame_interact.grid_rowconfigure(0, weight=3)
         self.start_frame_interact.grid_rowconfigure(1, weight=1)
 
+        # Update Console and Start Button
         self.mmtscnet_start_button = customtkinter.CTkButton(self.start_frame_interact, text="START", font=heading_font, command=self.start_application)
         self.mmtscnet_start_button.grid(row=1, column=0, padx=0, pady=10, sticky="nsew")
         self.mmtscnet_output = customtkinter.CTkTextbox(self.start_frame_interact, fg_color=("gray90", "gray21"), font=text_font, state="disabled")
@@ -153,6 +161,7 @@ class App(customtkinter.CTk):
         self.progressbar.configure(determinate_speed=5)
         self.progressbar.set(0)
 
+    # Starts MMTSCNet on Button press
     def start_application(self):
         self.mmtscnet_start_button.configure(state="disabled", text="WORKING...")
         self.progressbar.set(0)
@@ -173,7 +182,25 @@ class App(customtkinter.CTk):
         thr1 = gui_utils.ReturnValueThread(target=self.run_mmtscnet, args=("STARTING MMTSCNET!", data_dir, work_dir, model_dir, elimper, ssstest, capsel, growsel, netpcsize, maxpcscale, bsize, train, self.mmtscnet_start_button, self.progressbar, self.mmtscnet_output), daemon=True)
         thr1.start()
 
+    # Main Function
     def run_mmtscnet(self, message, data_dir, work_dir, model_dir, elimper, ssstest, capsel, growsel, netpcsize, maxpcscale, bsize, train, start_btn, progbar, output_log):
+        """
+        Main Function of MMTSCNet-GUI.
+
+        Args:
+        message: Logging placeholder.
+        data_dir: Source data directory.
+        work_dir: Working directory.
+        model_dir: Model saving directory.
+        elimper: Elimination threshold for underrepresented species.
+        ssstest: Train/Test split ratio.
+        capsel: User-specified acquisition method.
+        growsel: User-specified leaf-condition.
+        netpcsize: Resampling target number of points.
+        maxpcscale: Scaling factor for augmentation.
+        bsize: Batch-Size for tuning and training.
+        train: True/False - Training Mode
+        """
         if gui_utils.validate_selected_folders(data_dir, work_dir, model_dir, start_btn, progbar, output_log) == False:
             pass
         else:
@@ -185,7 +212,7 @@ class App(customtkinter.CTk):
             self.queue_message.put(ticket)
             self.event_generate("<<CheckQueue>>", when="tail")
             self.progressbar.step()
-
+            # Training Mode
             if train == "on":
                 workspace_paths = main_functions.extract_data(data_dir, work_dir, fwf_av, cap_sel, grow_sel, start_btn, progbar, output_log)
                 now = datetime.datetime.now()
@@ -218,7 +245,7 @@ class App(customtkinter.CTk):
                 self.queue_message.put(ticket)
                 self.event_generate("<<CheckQueue>>", when="tail")
                 self.progressbar.step()
-
+            # Prediction Mode
             elif train == "off":
                 if main_utils.check_if_model_is_created(model_dir) == True:
                     pretrained_model_path = model_utils.get_trained_model_folder(model_dir, cap_sel, grow_sel, start_btn, progbar, output_log)
@@ -246,8 +273,7 @@ class App(customtkinter.CTk):
                     self.event_generate("<<CheckQueue>>", when="tail")
                     self.progressbar.step()
                     start_btn.configure(state="normal")
-                
-
+            # Error handling
             else:
                 now = datetime.datetime.now()
                 now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
@@ -257,6 +283,7 @@ class App(customtkinter.CTk):
                 self.progressbar.step()
                 start_btn.configure(state="normal")
 
+    # Message Ticketing system
     def check_queue(self, event):
         msg: gui_utils.Ticket
         msg = self.queue_message.get()
@@ -267,6 +294,9 @@ class App(customtkinter.CTk):
         else:
             pass
 
+#------------------------------------------------------
+#--------           Button Handling           ---------
+#------------------------------------------------------
     def change_appearance_mode_event(self, new_appearance_mode: str):
         customtkinter.set_appearance_mode(new_appearance_mode)
 

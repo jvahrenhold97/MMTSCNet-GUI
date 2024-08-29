@@ -5,6 +5,9 @@ import datetime
 import os
 
 class ReturnValueThread(Thread):
+    """
+    Enables multithreading for functions with a return value.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.result = None
@@ -20,14 +23,31 @@ class ReturnValueThread(Thread):
         return self.result
 
 class TicketPurpose(Enum):
+    """
+    Enables ticketing for logging outputs to the GUI.
+    """
     UPDATE_TEXT = auto()
 
 class Ticket:
+    """
+    Enables ticketing for logging outputs to the GUI.
+    """
     def __init__(self, ticket_type: TicketPurpose, ticket_value: str):
         self.ticket_type = ticket_type
         self.ticket_value = ticket_value
 
 def validate_selected_folders(data_dir, work_dir, model_dir, start_btn, progbar, output_log):
+    """
+    Validates the user-specified folders.
+
+    Args:
+    data_dir: Source data directory.
+    work_dir: Working directory.
+    model_dir: Model saving directory.
+
+    Returns:
+    True/False
+    """
     if data_dir == "Select Data Folder":
         now = datetime.datetime.now()
         now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")
@@ -61,6 +81,15 @@ def validate_selected_folders(data_dir, work_dir, model_dir, start_btn, progbar,
                 return True
             
 def are_fwf_pointclouds_available(data_dir):
+    """
+    Checks if FWF data s available.
+
+    Args:
+    data_dir: Source data directory.
+
+    Returns:
+    True/False
+    """
     fwf_folders = []
     for subfolder in os.listdir(data_dir):
         if "fwf" in subfolder or "FWF" in subfolder:

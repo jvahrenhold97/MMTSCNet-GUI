@@ -1,6 +1,7 @@
 from gui.main_window import App
 import tensorflow as tf
 
+# Check for GPU's and enable them for processing
 gpus = tf.config.list_physical_devices('GPU')
 if gpus:
     for gpu in gpus:

@@ -9,6 +9,19 @@ from keras.callbacks import ReduceLROnPlateau, LearningRateScheduler
 import datetime
 
 def extract_data(data_dir, work_dir, fwf_av, capsel, growsel, start_btn, progbar, output_log):
+    """
+    Main utility function for i/o ops before preprocessing.
+
+    Args:
+    data_dir: User-specified source data directory.
+    work_dir: User-specified working directory.
+    fwf_av: True/False - Presence of FWF data.
+    capsel: User-specified acquisition selection.
+    growsel: User-specified leaf-confition selection.
+
+    Return:
+    full_pathlist: List of all paths available to MMTSCNet.
+    """
     local_pathlist = workspace_setup.create_working_directory(work_dir, fwf_av, output_log)
     workspace_setup.unzip_all_datasets(data_dir, local_pathlist, fwf_av, start_btn, progbar, output_log)
     if fwf_av == True:
@@ -21,6 +34,34 @@ def extract_data(data_dir, work_dir, fwf_av, capsel, growsel, start_btn, progbar
         return full_pathlist
 
 def preprocess_data(full_pathlist, ssstest, capsel, growsel, elimper, maxpcscale, netpcsize, netimgsize, fwf_av, start_btn, progbar, output_log):
+    """
+    Main utility function for the preprocessing.
+
+    Args:
+    full_pathlist: List of all paths used for MMTSCNet.
+    ssstest: Train/Test split ratio.
+    capsel: User-specified acquisition selection.
+    growsel: User-specified leaf-confition selection.
+    elimper: Threshold for the elimination of underrepresented species.
+    maxpcscale: Maximum scaling to apply during augmentation.
+    netpcsize: Number of points to resample point clouds to.
+    netimgsize: Image size in Pixels (224).
+    fwf_av: True/False - Presence of FWF data.
+
+    Returns:
+    X_pc_train: Training point clouds.
+    X_pc_val: Validation point clouds.
+    X_metrics_train: Training numerical features.
+    X_metrics_val: Validation numerical features.
+    X_img_1_train: Frontal validation images.
+    X_img_1_val: Frontal validation images.
+    X_img_2_train: Sideways training images.
+    X_img_2_val: Sideways validation images.
+    y_train: Training labels.
+    y_val: Validation labels.
+    num_classes: Number of classes present in the training dataset.
+    label_dict: Dictionary to translate one-hot encoded labels to textual labels.
+    """
     if fwf_av == True:
         unaugmented_regular_pointclouds = preprocessing.select_pointclouds(full_pathlist[6])
         unaugmented_fwf_pointclouds = preprocessing.select_pointclouds(full_pathlist[7])
@@ -74,6 +115,32 @@ def preprocess_data(full_pathlist, ssstest, capsel, growsel, elimper, maxpcscale
         return X_pc_train, X_pc_val, X_metrics_train, X_metrics_val, X_img_1_train, X_img_1_val, X_img_2_train, X_img_2_val, y_train, y_val, num_classes, label_dict
     
 def perform_hp_tuning(model_dir, X_pc_train, X_img_1_train, X_img_2_train, X_metrics_train, y_train, X_pc_val, X_img_1_val, X_img_2_val, X_metrics_val, y_val, bsize, netpcsize, netimgsize, num_classes, capsel, growsel, start_btn, progbar, output_log):
+    """
+    Main utility function for the hyperparameter tuning process.
+
+    Args:
+    model_dir: Filepath to model saving destination.
+    X_pc_train: Training point clouds.
+    X_pc_val: Validation point clouds.
+    X_metrics_train: Training numerical features.
+    X_metrics_val: Validation numerical features.
+    X_img_1_train: Frontal validation images.
+    X_img_1_val: Frontal validation images.
+    X_img_2_train: Sideways training images.
+    X_img_2_val: Sideways validation images.
+    y_train: Training labels.
+    y_val: Validation labels.
+    bsize: User-specified batch size.
+    netpcsize: Number of points to resample point clouds to.
+    netimgsize: Image size in Pixels (224).
+    num_classes: Number of classes present in the training dataset.
+    capsel: User-specified acquisition selection.
+    growsel: User-specified leaf-confition selection.
+    fwf_av: True/False - Presence of FWF data.
+
+    Returns:
+    untrained_model: Keras model instance of MMTSCNet with tuned hyperparameters.
+    """
     point_cloud_shape = (netpcsize, 3)
     image_shape = (netimgsize, netimgsize, 3)
     metrics_shape = (X_metrics_train.shape[1],)
@@ -147,6 +214,32 @@ def perform_hp_tuning(model_dir, X_pc_train, X_img_1_train, X_img_2_train, X_met
     return untrained_model
 
 def perform_training(model, bsz, X_pc_train, X_img_1_train, X_img_2_train, X_metrics_train, y_train, X_pc_val, X_img_1_val, X_img_2_val, X_metrics_val, y_val, modeldir, label_dict, capsel, growsel, start_btn, progbar, output_log):
+    """
+    Main utility function for the training process.
+
+    Args:
+    model: Untrained tuned model instance.
+    bsz: User-specified batch size.
+    X_pc_train: Training point clouds.
+    X_pc_val: Validation point clouds.
+    X_metrics_train: Training numerical features.
+    X_metrics_val: Validation numerical features.
+    X_img_1_train: Frontal validation images.
+    X_img_1_val: Frontal validation images.
+    X_img_2_train: Sideways training images.
+    X_img_2_val: Sideways validation images.
+    y_train: Training labels.
+    y_val: Validation labels.
+    model_dir: Target directory for model saving.
+    label_dict: Dictionary to translate one-hot encoded labels to textual labels.
+    netpcsize: Number of points to resample point clouds to.
+    capsel: User-specified acquisition selection.
+    growsel: User-specified leaf-confition selection.
+    fwf_av: True/False - Presence of FWF data.
+
+    Returns:
+    trained_model: Keras model instance of the trained MMTSCNet.
+    """
     y_pred_val = y_val
     tf.keras.utils.set_random_seed(812)
     model.compile(
@@ -224,6 +317,21 @@ def perform_training(model, bsz, X_pc_train, X_img_1_train, X_img_2_train, X_met
     return model_loaded_test
 
 def predict_for_custom_data(pretrained_model, work_dir, netimgsize, netpcsize, capsel, growsel, elimper, fwf_av, data_dir, model_dir, start_btn, progbar, output_log):
+    """
+    Main utility function for the prediction on custom data.
+
+    Args:
+    pretrained_model: Trained and tuned model instance.
+    work_dir: Filepath to the working directory.
+    netimgsize: Input image size forthe image processing branches (224).
+    netpcsize: Number of points to resample point clouds to.
+    capsel: User-specified acquisition selection.
+    growsel: User-specified leaf-confition selection.
+    fwf_av: True/False - Presence of FWF data.
+    elimper: Elimination threshold for underrepresented species.
+    data_dir: Source data directory filepath.
+    model_dir: Model directory filepath.
+    """
     if fwf_av == True:
         now = datetime.datetime.now()
         now_formatted = now.strftime("%Y-%m-%d %H:%M:%S")

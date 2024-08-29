@@ -8,6 +8,18 @@ from scipy.spatial import KDTree
 import datetime
 
 def create_config_directory(local_pathlist, capsel, growsel, fwf_av, output_log):
+    """
+    Creates a temporary directory for MMTSCNet, dependent on the presence of FWF data.
+
+    Args:
+    local_pathlist: List of paths created for MMTSCNet.
+    capsel: User-specified acquisition method.
+    growsel: User-specified leaf condition.
+    fwf_av: True/False - Presence of FWF data.
+
+    Returns:
+    local_pathlist: List of usable paths for further steps in the preprocessing
+    """
     if fwf_av == True:
         config_dir = local_pathlist[4]
         local_dir = os.path.join(config_dir + "/DATA_" + capsel + "_" + growsel)
@@ -47,7 +59,17 @@ def create_config_directory(local_pathlist, capsel, growsel, fwf_av, output_log)
         local_pathlist.append(local_met_dir)
         return local_pathlist
 
-def create_working_directory(workdir_path, fwf_av, output_log):  
+def create_working_directory(workdir_path, fwf_av, output_log):
+    """
+    Creates a basic directory structure for MMTSCNet, dependent on the presence of FWF data.
+
+    Args:
+    workdir_path: User-specified working directory.
+    fwf_av: True/False - Presence of FWF data.
+
+    Returns:
+    paths_to_create: List of usable paths for further steps in the preprocessing
+    """
     unzipped_data_folder_name = "data_unzipped"
     configuration_data_folder_name = "data_config"
     fpc_name = "FPC"
@@ -93,6 +115,15 @@ def create_working_folder(path, output_log):
         output_log.configure(state="disabled")
 
 def get_is_dataset_extracted(las_unzipped_path):
+    """
+    Check if dataset has been extracted already.
+
+    Args:
+    las_unzipped_path: Filepath to unzipped las files.
+
+    Returns:
+    True/False
+    """
     extracted_datasets_count = 0
     for subdir in os.listdir(las_unzipped_path):
         extracted_datasets_count+=1
@@ -102,6 +133,15 @@ def get_is_dataset_extracted(las_unzipped_path):
         return False
     
 def get_las_and_fwf_base_dir_paths(data_source_path):
+    """
+    Retrieves filepaths to zipped las and FWF folders.
+
+    Args:
+    data_source_path: Filepath to source data.
+
+    Returns:
+    las_fwf_base_dir_paths: Paths to zipped las and fwf folders.
+    """
     las_fwf_base_dir_paths = []
     for subdir in os.listdir(data_source_path):
         subdir_path = main_utils.join_paths(data_source_path, subdir)
@@ -109,6 +149,14 @@ def get_las_and_fwf_base_dir_paths(data_source_path):
     return las_fwf_base_dir_paths
 
 def unzip_all_datasets(SOURCE_DATASET_PATH, pathlist, fwf_av, start_btn, progbar, output_log):
+    """
+    Unzips las and FWF data from the original dataset.
+
+    Args:
+    SOURCE_DATASET_PATH: Filepath to source data.
+    pathlist: List of usable paths for MMTSCNet.
+    fwf_av: True/False - Presence of FWF data.
+    """
     if fwf_av == True:
         UNZIPPED_LAS_PATH = pathlist[1]
         UNZIPPED_FWF_PATH = pathlist[2]
@@ -194,6 +242,15 @@ def unzip_all_datasets(SOURCE_DATASET_PATH, pathlist, fwf_av, start_btn, progbar
             output_log.configure(state="disabled")
 
 def get_are_fwf_pcs_extracted(fwf_working_path):
+    """
+    Checks if the individual FWF flight strips have already been extracted.
+
+    Args:
+    fwf_working_path: Filepath to extracted FWF flight strips in the working directory.
+
+    Returns:
+    True/False
+    """
     index=0
     for file in os.listdir(fwf_working_path):
         index+=1
@@ -203,17 +260,43 @@ def get_are_fwf_pcs_extracted(fwf_working_path):
         return False
 
 def getDimensions(file):
+    """
+    Retrieves the dimensions of a las file.
+
+    Args:
+    file: Las file.
+
+    Returns:
+    dimensions: Dimensions of the specified las file.
+    """
     dimensions = ""
     for dim in file.point_format:
         dimensions += " " + dim.name
     return dimensions
 
 def readLas(file):
+    """
+    Reads a las file and returns its points and dimensions.
+
+    Args:
+    file: Las file.
+
+    Returns:
+    source_cloud: Points included in the las file.
+    dimensions: Dimensions of the specified las file.
+    """
     dimensions = getDimensions(file)
     source_cloud = np.array([file.x, file.y, file.z]).T
     return source_cloud, dimensions
 
 def append_to_las(in_laz, out_las, output_log):
+    """
+    Attaches one las file to another las file with the VLRs included.
+
+    Args:
+    in_laz: Filepath to the las file to attach.
+    out_las: Filepath to the target las file.
+    """
     with lp.open(out_las, mode='a') as outlas:
         with lp.open(in_laz) as inlas:
             # Copy VLRs if they are not already present in the output LAS
@@ -226,6 +309,15 @@ def append_to_las(in_laz, out_las, output_log):
                 outlas.append_points(points)
 
 def contains_full_waveform_data(las_file_path, output_log):
+    """
+    Checks a file for the presence of FWF data.
+
+    Args:
+    las_file_path: File to check for FWF data.
+
+    Returns:
+    True/False
+    """
     try:
         las = lp.read(las_file_path)
         for vlr in las.header.vlrs:
@@ -241,6 +333,16 @@ def contains_full_waveform_data(las_file_path, output_log):
         return False
 
 def create_fpcs(fwf_unzipped_path, fpc_unzipped_path, output_log):
+    """
+    Attaches FWF flight strips to create a single FWF point cloud for each plot.
+
+    Args:
+    fwf_unzipped_path: Filepath to individual FWF flight strip point clouds.
+    fpc_unzipped_path: Filepath to plot FWF point clouds.
+
+    Returns:
+    True/False
+    """
     if get_are_fwf_pcs_extracted(fpc_unzipped_path) == False:
         for plot_folder in os.listdir(fwf_unzipped_path):
             now = datetime.datetime.now()
@@ -287,6 +389,20 @@ def create_fpcs(fwf_unzipped_path, fpc_unzipped_path, output_log):
         output_log.configure(state="disabled")
 
 def get_capgrow(capsel, growsel):
+    """
+    Utility for validating acquisition and leaf-condition combinations.
+
+    Args:
+    capsel: User-specified acquisition selection.
+    growsel: User-specified leaf-confition selection.
+
+    Returns:
+    cap1: Acquisition method 1.
+    cap2: Acquisition method 2.
+    cap3: Acquisition method 3.
+    grow1: Leaf-condition 1.
+    grow2: Leaf-condition 2.
+    """
     if capsel == "ALL":
         cap1 = "ALS"
         cap2 = "TLS"
@@ -353,6 +469,17 @@ def get_capgrow(capsel, growsel):
             return cap1, cap2, cap3, grow1, grow2
 
 def extract_single_trees_from_fpc(fpc_unzipped_path, las_unzipped_path, las_working_path, fwf_working_path, capsel, growsel, output_log):
+    """
+    Extraction of individual trees from FWF plot point clouds.
+
+    Args:
+    fpc_unzipped_path: Filepath to FWF plot point clouds.
+    las_unzipped_path: Filepath to extracted las point clouds.
+    las_working_path: Filepath to las point cloud target directory.
+    fwf_working_path: Filepath to fwf point cloud target directory.
+    capsel: User-specified acquisition selection.
+    growsel: User-specified leaf-confition selection.
+    """
     cap1, cap2, cap3, grow1, grow2 = get_capgrow(capsel, growsel)
     if get_are_fwf_pcs_extracted(fwf_working_path) == False:
         id_counter = 0
@@ -431,6 +558,17 @@ def extract_single_trees_from_fpc(fpc_unzipped_path, las_unzipped_path, las_work
         output_log.configure(state="disabled")
 
 def extract_single_trees_from_fpc_for_predictions(fpc_unzipped_path, las_unzipped_path, las_working_path, fwf_working_path, capsel, growsel, output_log):
+    """
+    Extraction of individual trees from FWF plot point clouds for predicting.
+
+    Args:
+    fpc_unzipped_path: Filepath to FWF plot point clouds.
+    las_unzipped_path: Filepath to extracted las point clouds.
+    las_working_path: Filepath to las point cloud target directory.
+    fwf_working_path: Filepath to fwf point cloud target directory.
+    capsel: User-specified acquisition selection.
+    growsel: User-specified leaf-confition selection.
+    """
     cap1, cap2, cap3, grow1, grow2 = get_capgrow(capsel, growsel)
     if get_are_fwf_pcs_extracted(fwf_working_path) == False:
         id_counter = 0
@@ -509,6 +647,18 @@ def extract_single_trees_from_fpc_for_predictions(fpc_unzipped_path, las_unzippe
         output_log.configure(state="disabled")
 
 def create_config_directory_for_predictions(local_pathlist, capsel, growsel, fwf_av, output_log):
+    """
+    Creates a temporary directory for MMTSCNet, dependent on the presence of FWF data.
+
+    Args:
+    local_pathlist: List of paths created for MMTSCNet.
+    capsel: User-specified acquisition method.
+    growsel: User-specified leaf condition.
+    fwf_av: True/False - Presence of FWF data.
+
+    Returns:
+    local_pathlist: List of usable paths for further steps in the preprocessing
+    """
     if fwf_av == True:
         config_dir = local_pathlist[4]
         local_dir = os.path.join(config_dir + "/PREDICTIONS_" + capsel + "_" + growsel)
@@ -549,6 +699,15 @@ def create_config_directory_for_predictions(local_pathlist, capsel, growsel, fwf
         return local_pathlist
     
 def copy_files_for_prediction(las_unzipped_path, las_working_path, capsel, growsel):
+    """
+    Copies las point clouds to the working directory for predictions.
+
+    Args:
+    las_unzipped_path: Filepath to extracted las point clouds.
+    las_working_path: Filepath to target working directory for las point clouds.
+    capsel: User-specified acquisition method.
+    growsel: User-specified leaf condition.
+    """
     tree_index = 0
     id_counter = 0
     for plot_folder in os.listdir(las_unzipped_path):
@@ -572,6 +731,16 @@ def copy_files_for_prediction(las_unzipped_path, las_working_path, capsel, grows
                                 tree_index += 1
 
 def extract_data_for_predictions(data_dir, work_dir, fwf_av, capsel, growsel, start_btn, progbar, output_log):
+    """
+    Main utility function for preparing data for predictions.
+
+    Args:
+    data_dir: User-specified source data directory.
+    work_dir: User-specified working directory.
+    fwf_av: True/False - Presence of FWF data.
+    capsel: User-specified acquisition selection.
+    growsel: User-specified leaf-confition selection.
+    """
     local_pathlist = create_working_directory(work_dir, fwf_av, output_log)
     unzip_all_datasets(data_dir, local_pathlist, fwf_av, start_btn, progbar, output_log)
     if fwf_av == True:
